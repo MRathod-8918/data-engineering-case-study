@@ -1,0 +1,22 @@
+# Python / Virtual Environment
+venv/
+__pycache__/
+*.pyc
+
+# Terraform State & Local Folders
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+
+# Zip Packages & Build Outputs
+*.zip
+response.json
+/tmp/
+
+# Environment Variables & Secrets
+.env
+
+# OS Metadata
+.DS_Store
+Thumbs.db
