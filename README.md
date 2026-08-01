@@ -1,31 +1,34 @@
 IATA Case Study
 
 Business Context
+
 IATA’s Economics department urgently acquired a sales dataset to analyze prior to a leadership meeting with the French Minister of Transportation. This project provides an automated, serverless pipeline to ingest, format, partition, and expose the dataset in AWS for immediate SQL analytics.
 
 Architecture Overview
+```text
 [ HTTP Target URL ]
-       │
-       ▼ (1. Trigger / Manual Call)
+       |
+       v (1. Trigger / Manual Call)
 [ AWS Lambda: Download ]
-       │
-       ▼ (Writes raw ZIP)
+       |
+       v (Writes raw ZIP)
 [ S3: raw/ ]
-       │
-       ▼ (2. S3 Event Notification)
+       |
+       v (2. S3 Event Notification)
 [ AWS Lambda: Unzip ]
-       │
-       ▼ (Extracts CSV & Moves ZIP)
+       |
+       v (Extracts CSV & Moves ZIP)
 [ S3: archive/ ]
-       │
-       ▼ (3. S3 Event Notification)
+       |
+       v (3. S3 Event Notification)
 [ AWS Lambda: Transform ]
-       │
-       ▼ (Converts CSV to Parquet partitioned by Country)
+       |
+       v (Converts CSV to Parquet partitioned by Country)
 [ S3: processed/country=... ]
-       │
-       ▼ (4. Partition Projection)
+       |
+       v (4. Partition Projection)
 [ AWS Glue Catalog & Amazon Athena ]
+```
 
 Key Highlights
 1. Decoupled Architecture: Built as 3 single-responsibility Lambdas (Download -> Unzip -> Transform) triggered automatically via S3 ObjectCreated events.
@@ -33,26 +36,38 @@ Key Highlights
 3. 100% Serverless & IaC: Provisioned entirely via Terraform (S3, IAM, Lambda, Glue) with zero server maintenance and zero idle costs.
 
 Repository Structure
+```text
+.
 ├── lambda/
 │   ├── download/     # Lambda 1: Streamed HTTP downloader
 │   ├── unzip/        # Lambda 2: Zip extraction & archive management
 │   └── transform/    # Lambda 3: Pandas/PyArrow CSV-to-Parquet converter
 ├── terraform/        # Complete IaC setup (main.tf, lambda.tf, glue.tf, etc.)
 └── README.md
+```
 
 Quickstart & Deployment
 1. Deploy Infrastructure
+   
 Bash
+
 cd terraform
+
 terraform init
+
 terraform apply -auto-approve
+
 2. Trigger Pipeline
+   
 Bash
+
 aws lambda invoke --function-name iata-download-dataset response.json
 
+
 SQL Analytics via Athena
+
 Once processed, query the partitioned dataset directly in Amazon Athena:
-SQL
+```text
 SELECT 
     country,
     COUNT(*) AS total_orders,
@@ -62,6 +77,7 @@ SELECT
 FROM iata_economics_db.sales_records
 WHERE country = 'France'
 GROUP BY country;
+```
 
 Production Enhancements (Next Steps)
 1. Orchestration: 
