@@ -1,10 +1,10 @@
-IATA Case Study
+# IATA Case Study
 
-Business Context
+## Business Context
 
 IATA’s Economics department urgently acquired a sales dataset to analyze prior to a leadership meeting with the French Minister of Transportation. This project provides an automated, serverless pipeline to ingest, format, partition, and expose the dataset in AWS for immediate SQL analytics.
 
-Architecture Overview
+## Architecture Overview
 ```text
 [ HTTP Target URL ]
        |
@@ -30,12 +30,12 @@ Architecture Overview
 [ AWS Glue Catalog & Amazon Athena ]
 ```
 
-Key Highlights
+## Key Highlights
 1. Decoupled Architecture: Built as 3 single-responsibility Lambdas (Download -> Unzip -> Transform) triggered automatically via S3 ObjectCreated events.
 2. Cost & Query Optimization: Converts CSV to Snappy-compressed Apache Parquet partitioned by Country, dramatically reducing S3 storage size and Athena query costs.
 3. 100% Serverless & IaC: Provisioned entirely via Terraform (S3, IAM, Lambda, Glue) with zero server maintenance and zero idle costs.
 
-Repository Structure
+## Repository Structure
 ```text
 .
 ├── lambda/
@@ -46,28 +46,25 @@ Repository Structure
 └── README.md
 ```
 
-Quickstart & Deployment
+## Quickstart & Deployment
 1. Deploy Infrastructure
    
-Bash
-
+```bash
 cd terraform
-
 terraform init
-
 terraform apply -auto-approve
+```
 
 2. Trigger Pipeline
    
-Bash
-
+```bash
 aws lambda invoke --function-name iata-download-dataset response.json
+```
 
-
-SQL Analytics via Athena
+## SQL Analytics via Athena
 
 Once processed, query the partitioned dataset directly in Amazon Athena:
-```text
+```sql
 SELECT 
     country,
     COUNT(*) AS total_orders,
@@ -79,10 +76,7 @@ WHERE country = 'France'
 GROUP BY country;
 ```
 
-Production Enhancements (Next Steps)
-1. Orchestration: 
-Transition S3 event triggers to AWS Step Functions for state tracking, retries, and error handling.
-2. Large Scale Processing: 
-Upgrade Lambda transform step to AWS Glue PySpark for files exceeding Lambda /tmp limits (>10 GB).
-3. CI/CD & Governance: 
-Implement GitHub Actions for automated terraform plan checks and Great Expectations for automated schema/data validation.
+## Production Enhancements (Next Steps)
+1. Orchestration: Transition S3 event triggers to AWS Step Functions for state tracking, retries, and error handling.
+2. Large Scale Processing: Upgrade Lambda transform step to AWS Glue PySpark for files exceeding Lambda /tmp limits (>10 GB).
+3. CI/CD & Governance: Implement GitHub Actions for automated terraform plan checks and Great Expectations for automated schema/data validation.
