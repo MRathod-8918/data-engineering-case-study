@@ -61,7 +61,12 @@ def lambda_handler(event, context):
             if file.endswith(".parquet"):
                 local_file = os.path.join(root, file)
                 relative_path = os.path.relpath(local_file, output_path)
-                s3_key = f"processed/{relative_path.replace('\\', '/')}"
+                
+                # FIX: Decode the '%20' back into real spaces for clean S3 paths
+                clean_path = urllib.parse.unquote(relative_path.replace('\\', '/'))
+                s3_key = f"processed/{clean_path}"
+
+                print(f"Uploading: {local_file} -> s3://{bucket}/{s3_key}")
                 s3.upload_file(local_file, bucket, s3_key)
 
     if os.path.exists(local_csv_path):
