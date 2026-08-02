@@ -7,17 +7,21 @@ import urllib.parse
 # Initialize Boto3 S3 client to interact with AWS S3 APIs
 s3 = boto3.client("s3")
 
-# Extract environment variable injected by Terraform (data lake bucket name)
+# Extract environment variable injected by Terraform (No fallback hardcoding)
 BUCKET_NAME = os.environ["BUCKET_NAME"]
 
+
 def lambda_handler(event, context):
-    # Parse S3 event notification payload to retrieve the uploaded object key
-    raw_key = event["Records"][0]["s3"]["object"]["key"]
+    # ==========================================================================
+    # STEP FUNCTIONS INPUT PARSING (No hardcoded fallbacks)
+    # Reads exact raw_key passed dynamically from the Download Lambda step
+    # ==========================================================================
+    raw_key = event["raw_key"]
     
     # Decode URL-encoded object key (converts '%20' or '+' to spaces and special characters)
     zip_file = urllib.parse.unquote_plus(raw_key)
     
-    print("S3 Event File:", zip_file)
+    print("Processing S3 ZIP File:", zip_file)
 
     # Local file paths inside AWS Lambda's /tmp ephemeral storage space
     local_zip = "/tmp/" + os.path.basename(zip_file)
@@ -43,20 +47,28 @@ def lambda_handler(event, context):
 
     # Extract base dataset name (e.g., '2m-Sales-Records' from '2m-Sales-Records.zip')
     dataset_name = os.path.splitext(os.path.basename(zip_file))[0]
+    extracted_csv_key = ""
 
     # Iterate through extracted files and upload them to the S3 archive/ zone
     for file_name in os.listdir(extract_folder):
         local_file = os.path.join(extract_folder, file_name)
         archive_file_name = dataset_name + ".csv"
+        extracted_csv_key = "archive/" + archive_file_name
 
         print("Uploading to archive/", archive_file_name)
         
         # Upload CSV to s3://<bucket>/archive/<dataset_name>.csv
-        # This upload automatically triggers the downstream Transform Lambda via S3 Event Notifications
-        s3.upload_file(local_file, BUCKET_NAME, "archive/" + archive_file_name)
+        s3.upload_file(local_file, BUCKET_NAME, extracted_csv_key)
 
-    # Return standard HTTP 200 Success response
+    # Workspace Cleanup: Free up ephemeral disk space
+    if os.path.exists(local_zip):
+        os.remove(local_zip)
+    if os.path.exists(extract_folder):
+        shutil.rmtree(extract_folder)
+
+    # Return standard HTTP 200 Success response payload with key for downstream task
     return {
         "statusCode": 200,
-        "message": "Dataset extracted and uploaded to archive"
+        "raw_key": extracted_csv_key,
+        "message": f"Dataset extracted and uploaded to {extracted_csv_key}"
     }

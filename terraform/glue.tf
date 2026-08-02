@@ -22,9 +22,9 @@ resource "aws_glue_catalog_table" "processed_parquet_table" {
 
     # PARTITION PROJECTION: Allows Athena to calculate S3 partition locations dynamically in memory
     # Optimization: Completely eliminates the need to run costly/slow Glue Crawlers or MSCK REPAIR TABLE
-    "projection.enabled"                  = "true"
-    "projection.country.type"             = "injected" # Allows filtering by country dynamically in SQL WHERE clauses
-    
+    "projection.enabled"      = "true"
+    "projection.country.type" = "injected" # Allows filtering by country dynamically in SQL WHERE clauses
+
     # S3 Hive Path Template: Matches the PyArrow output structure (country=<Country_Name>)
     "projection.country.locationtemplate" = "s3://${aws_s3_bucket.iata_data_lake.bucket}/processed/country=$${country}/"
     "storage.location.template"           = "s3://${aws_s3_bucket.iata_data_lake.bucket}/processed/country=$${country}/"
@@ -95,7 +95,7 @@ resource "aws_glue_catalog_table" "processed_parquet_table" {
       name = "Total Profit"
       type = "double"
     }
-    
+
     # AUDIT COLUMN: Data lineage column populated by Transform Lambda
     columns {
       name = "filename"

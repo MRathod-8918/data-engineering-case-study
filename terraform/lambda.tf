@@ -14,13 +14,13 @@ resource "aws_lambda_function" "download_lambda" {
   filename      = data.archive_file.download_lambda_zip.output_path
   function_name = "iata-download-dataset"
   role          = aws_iam_role.lambda_role.arn
-  
+
   # UPDATED HANDLER: Points specifically to download_lambda.py -> lambda_handler
-  handler       = "download_lambda.lambda_handler"
-  
-  runtime       = "python3.12"
-  timeout       = 300 # 5-minute timeout for streaming large HTTP downloads
-  memory_size   = 512 # Allocated RAM for optimal streaming performance
+  handler = "download_lambda.lambda_handler"
+
+  runtime     = "python3.12"
+  timeout     = 300 # 5-minute timeout for streaming large HTTP downloads
+  memory_size = 512 # Allocated RAM for optimal streaming performance
 
   environment {
     variables = {
@@ -46,13 +46,13 @@ resource "aws_lambda_function" "unzip_lambda" {
   filename      = data.archive_file.unzip_lambda_zip.output_path
   function_name = "iata-unzip-dataset"
   role          = aws_iam_role.lambda_role.arn
-  
+
   # UPDATED HANDLER: Points specifically to unzip_lambda.py -> lambda_handler
-  handler       = "unzip_lambda.lambda_handler"
-  
-  runtime       = "python3.12"
-  timeout       = 300
-  memory_size   = 512
+  handler = "unzip_lambda.lambda_handler"
+
+  runtime     = "python3.12"
+  timeout     = 300
+  memory_size = 512
 
   # Production Optimization: Expanded /tmp disk space to 2GB (2048MB) for multi-million row files
   ephemeral_storage {
@@ -82,13 +82,13 @@ resource "aws_lambda_function" "transform_lambda" {
   filename      = data.archive_file.transform_lambda_zip.output_path
   function_name = "iata-transform-dataset"
   role          = aws_iam_role.lambda_role.arn
-  
+
   # UPDATED HANDLER: Points specifically to transform_lambda.py -> lambda_handler
-  handler       = "transform_lambda.lambda_handler"
-  
-  runtime       = "python3.12"
-  timeout       = 900  # Max 15-minute execution limit for dataset transformations
-  memory_size   = 2048 # 2GB RAM for fast in-memory Pandas & PyArrow processing
+  handler = "transform_lambda.lambda_handler"
+
+  runtime     = "python3.12"
+  timeout     = 900  # Max 15-minute execution limit for dataset transformations
+  memory_size = 2048 # 2GB RAM for fast in-memory Pandas & PyArrow processing
 
   ephemeral_storage {
     size = 2048 # 2GB ephemeral storage for writing local Parquet partitions
