@@ -26,6 +26,7 @@ resource "aws_lambda_function" "download_lambda" {
     variables = {
       BUCKET_NAME = aws_s3_bucket.iata_data_lake.bucket
       DATASET_URL = var.dataset_url # Parameterized URL from variables.tf
+      AUDIT_TABLE_NAME = aws_dynamodb_table.pipeline_audit.name
     }
   }
 }
@@ -62,6 +63,7 @@ resource "aws_lambda_function" "unzip_lambda" {
   environment {
     variables = {
       BUCKET_NAME = aws_s3_bucket.iata_data_lake.bucket
+      AUDIT_TABLE_NAME = aws_dynamodb_table.pipeline_audit.name
     }
   }
 }
@@ -103,6 +105,7 @@ resource "aws_lambda_function" "transform_lambda" {
   environment {
     variables = {
       BUCKET_NAME = aws_s3_bucket.iata_data_lake.bucket
+      AUDIT_TABLE_NAME = aws_dynamodb_table.pipeline_audit.name
     }
   }
 }

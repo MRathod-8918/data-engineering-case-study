@@ -3,72 +3,65 @@ import zipfile
 import os
 import shutil
 import urllib.parse
+from datetime import datetime, timezone
 
-# Initialize Boto3 S3 client to interact with AWS S3 APIs
 s3 = boto3.client("s3")
+dynamodb = boto3.resource("dynamodb")
 
-# Extract environment variable injected by Terraform (No fallback hardcoding)
 BUCKET_NAME = os.environ["BUCKET_NAME"]
-
+AUDIT_TABLE_NAME = os.environ["AUDIT_TABLE_NAME"]
+audit_table = dynamodb.Table(AUDIT_TABLE_NAME)
 
 def lambda_handler(event, context):
-    # ==========================================================================
-    # STEP FUNCTIONS INPUT PARSING (No hardcoded fallbacks)
-    # Reads exact raw_key passed dynamically from the Download Lambda step
-    # ==========================================================================
     raw_key = event["raw_key"]
-    
-    # Decode URL-encoded object key (converts '%20' or '+' to spaces and special characters)
     zip_file = urllib.parse.unquote_plus(raw_key)
     
-    print("Processing S3 ZIP File:", zip_file)
+    # 1. Catch the exact file_id from the upstream event (2m-Sales-Records.zip)
+    file_id = event.get("file_id", os.path.basename(zip_file))
 
-    # Local file paths inside AWS Lambda's /tmp ephemeral storage space
+    audit_table.update_item(
+        Key={"file_id": file_id},
+        UpdateExpression="SET unzip_status = :s, last_updated = :t",
+        ExpressionAttributeValues={":s": "IN_PROGRESS", ":t": datetime.now(timezone.utc).isoformat()}
+    )
+
     local_zip = "/tmp/" + os.path.basename(zip_file)
     extract_folder = "/tmp/extracted"
 
-    # Workspace Hygiene: Clean up local /tmp directories from previous warm container runs
-    # Prevents storage leaks and leftover file collisions
     if os.path.exists(extract_folder):
         shutil.rmtree(extract_folder)
     os.makedirs(extract_folder, exist_ok=True)
-
     if os.path.exists(local_zip):
         os.remove(local_zip)
 
-    # Download raw ZIP archive from S3 raw/ folder into local /tmp workspace
-    print("Downloading:", zip_file)
     s3.download_file(BUCKET_NAME, zip_file, local_zip)
-
-    # In-memory extraction: Unzip contents locally into the extracted folder
-    print("Extracting ZIP file...")
+                                                                                                                        
     with zipfile.ZipFile(local_zip, "r") as zip_ref:
         zip_ref.extractall(extract_folder)
 
-    # Extract base dataset name (e.g., '2m-Sales-Records' from '2m-Sales-Records.zip')
     dataset_name = os.path.splitext(os.path.basename(zip_file))[0]
     extracted_csv_key = ""
 
-    # Iterate through extracted files and upload them to the S3 archive/ zone
-    for file_name in os.listdir(extract_folder):
-        local_file = os.path.join(extract_folder, file_name)
+    for extracted_file in os.listdir(extract_folder):
+        local_file = os.path.join(extract_folder, extracted_file)
         archive_file_name = dataset_name + ".csv"
         extracted_csv_key = "archive/" + archive_file_name
-
-        print("Uploading to archive/", archive_file_name)
-        
-        # Upload CSV to s3://<bucket>/archive/<dataset_name>.csv
         s3.upload_file(local_file, BUCKET_NAME, extracted_csv_key)
 
-    # Workspace Cleanup: Free up ephemeral disk space
     if os.path.exists(local_zip):
         os.remove(local_zip)
     if os.path.exists(extract_folder):
         shutil.rmtree(extract_folder)
 
-    # Return standard HTTP 200 Success response payload with key for downstream task
-    return {
-        "statusCode": 200,
-        "raw_key": extracted_csv_key,
-        "message": f"Dataset extracted and uploaded to {extracted_csv_key}"
-    }
+    audit_table.update_item(
+        Key={"file_id": file_id},
+        UpdateExpression="SET unzip_status = :s, extracted_csv_key = :k, last_updated = :t",
+        ExpressionAttributeValues={
+            ":s": "SUCCESS",
+            ":k": extracted_csv_key,
+            ":t": datetime.now(timezone.utc).isoformat()
+        }
+    )
+
+    # 2. Pass file_id down to Transform
+    return {"statusCode": 200, "raw_key": extracted_csv_key, "file_id": file_id}
